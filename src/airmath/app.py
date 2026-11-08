@@ -193,7 +193,14 @@ def main(argv: list[str] | None = None) -> int:
 
     session = Session(width=args.width, height=args.height)
     tracker = HandTracker()
-    cam = cv2.VideoCapture(args.camera)
+    # Windows: DirectShow first - the default MSMF backend can fail to open
+    # built-in cameras even when they are healthy.
+    if sys.platform == "win32":
+        cam = cv2.VideoCapture(args.camera, cv2.CAP_DSHOW)
+        if not cam.isOpened():
+            cam = cv2.VideoCapture(args.camera)  # fall back to the default backend
+    else:
+        cam = cv2.VideoCapture(args.camera)
     if not cam.isOpened():
         print("could not open camera %d" % args.camera)
         return 2
@@ -214,6 +221,11 @@ def main(argv: list[str] | None = None) -> int:
                 break
     except KeyboardInterrupt:
         pass
+    except Exception:
+        import traceback
+
+        traceback.print_exc()
+        return 1
     finally:
         tracker.close()
         cam.release()
