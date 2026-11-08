@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "airmath"
+version = "0.1.0"
+description = "Write math in the air with your finger - webcam recognizes the strokes and solves the equation live."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Ankita Salaria" }]
+keywords = ["computer-vision", "mediapipe", "hand-tracking", "mnist", "air-writing"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+]
+
+[project.scripts]
+airmath = "airmath.__main__:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+airmath = ["models/*.npz"]

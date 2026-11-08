@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install headless deps
+        run: pip install opencv-python-headless numpy scipy pytest
+      - name: Test
+        run: pytest -q
+      - name: Smoke import
+        run: PYTHONPATH=src python -c "from airmath.canvas import AirCanvas; from airmath.solver import solve; print(solve(list('12+8=')))"
