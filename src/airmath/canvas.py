@@ -85,7 +85,7 @@ class AirCanvas:
     # -- API for the app ----------------------------------------------------
 
     def glyph_queue(self) -> list[Glyph]:
-        out = [Glyph(ink=ink, x=x) for ink, x, _ in self.glyphs]
+        out = [Glyph(ink=ink, x=x, y=y) for ink, x, y in self.glyphs]
         self.glyphs = []
         return out
 

@@ -26,6 +26,7 @@ class Glyph:
 
     ink: np.ndarray  # boolean HxW mask, True = ink
     x: int  # left edge on the canvas
+    y: int = 0  # top edge on the canvas
 
 
 @lru_cache(maxsize=1)

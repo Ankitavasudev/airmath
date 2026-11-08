@@ -13,6 +13,7 @@ from pathlib import Path
 
 import numpy as np
 
+from . import fx
 from .canvas import AirCanvas
 from .hand_tracker import HandState, HandTracker
 from .recognizer import classify
@@ -27,14 +28,36 @@ INK_COLOR = (60, 180, 255)  # drawn trail on the frame - bgr
 
 
 class Session:
-    """State threaded between frames: tokens collected, last result."""
+    """State threaded between frames: tokens collected, last result, FX."""
 
     def __init__(self, width: int, height: int):
+        self.width = width
+        self.height = height
         self.canvas = AirCanvas(width=width, height=height)
         self.tokens: list[tuple[str, int]] = []  # (token, x)
         self.result: str = ""
         self.result_kind: str = "ok"
         self.history: list[tuple[str, str]] = []  # (expr, answer)
+        # fx state
+        self.tick = 0
+        self.trail: list[tuple[int, int]] = []
+        self.chips: list[fx.FloatChip] = []
+        self.particles: list[fx.Particle] = []
+        self.scans: list[fx.Scan] = []
+        self.mood: str = "idle"
+        self.mood_until = 0
+
+    def _celebrate(self, ok: bool) -> None:
+        y = self.height - 70
+        if ok:
+            fx.star_burst(self.particles, x=210, y=y, count=34)
+            self.mood, self.mood_until = "ok", self.tick + 170
+        else:
+            fx.float_chip(self.chips, "oops!", 210, y, color=fx.RED)
+            self.mood, self.mood_until = "err", self.tick + 90
+        if self.canvas.image.any():
+            ys, xs = np.nonzero(self.canvas.image)
+            self.scans.append(fx.Scan(int(xs.min()), int(xs.max()), int(ys.min()), int(ys.max()), tick0=self.tick))
 
     def handle_glyphs(self, glyphs) -> None:
         for g in glyphs:
@@ -69,9 +92,11 @@ class Session:
             self.result = "%s = %d" % (" ".join(tok[:-1]), value)
             self.result_kind = "ok"
             self.history.append((" ".join(tok[:-1]), str(value)))
+            self._celebrate(ok=True)
         except ExpressionError as exc:
             self.result = " ".join(tok[:-1]) + " -> " + str(exc)
             self.result_kind = "error"
+            self._celebrate(ok=False)
 
     def wipe(self) -> None:
         self.canvas.clear()
@@ -80,14 +105,20 @@ class Session:
 
 
 def run_over_frame(frame_bgr: np.ndarray, session: Session, hand: HandState | None) -> np.ndarray:
-    """Draw/display one frame. Returns the annotated frame."""
+    """Draw/display one frame. Returns the annotated frame, FX advanced."""
+    session.tick += 1
     if hand is not None:
         if hand.wipe:
-            session.wipe()
+            session.canvas.clear()
+            session.tokens = []
+            session.result = ""
         elif hand.pen:
             session.canvas.move(hand.x, hand.y)
         else:
             session.canvas.finish()
+        session.trail.append((hand.x, hand.y))
+        if len(session.trail) > 20:
+            del session.trail[:-18]
     else:
         session.canvas.finish()
 
@@ -95,23 +126,33 @@ def run_over_frame(frame_bgr: np.ndarray, session: Session, hand: HandState | No
     if glyphs:
         session.handle_glyphs(glyphs)
 
+    fx.step(session.chips, session.particles)
+    fx.step_scans(session.scans, session.tick)
+    if session.mood_until < session.tick:
+        session.mood = "idle"
+
     frame = frame_bgr.copy()
     ink = session.canvas.image
     frame[ink > 0] = INK_COLOR
 
+    for scan in session.scans:
+        fx.draw_scan(frame, scan, session.tick)
     if hand is not None:
-        dot_color = (0, 229, 160) if hand.pen else UI_COLOR
-        frame = _dot(frame, hand.x, hand.y, dot_color)
+        fx.draw_trail(frame, session.trail[-18:], hand.pen)
+
+    if glyphs:
+        for g in glyphs:
+            tok = classify(g)
+            if tok:
+                fx.float_chip(session.chips, tok, g.x + 12, g.y - 8)
+
+    fx.draw_chips(frame, session.chips)
+    fx.draw_particles(frame, session.particles)
+    if hand is not None:
+        fx.draw_cursor(frame, hand.x, hand.y, hand.pen, session.tick)
+        fx.draw_mascot(frame, frame.shape[1] - 70, 56, session.mood, session.tick)
 
     _hud(frame, session, hand)
-    return frame
-
-
-def _dot(frame: np.ndarray, x: int, y: int, color) -> np.ndarray:
-    import cv2
-
-    cv2.circle(frame, (x, y), 9, color, -1, cv2.LINE_AA)
-    cv2.circle(frame, (x, y), 13, (255, 255, 255), 1, cv2.LINE_AA)
     return frame
 
 
