@@ -26,4 +26,4 @@ package-dir = { "" = "src" }
 where = ["src"]
 
 [tool.setuptools.package-data]
-airmath = ["models/*.npz"]
+airmath = ["models/*.npz", "models/*.task"]
