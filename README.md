@@ -30,6 +30,13 @@ pip install git+https://github.com/Ankitavasudev/airmath@main
 
 Python 3.9+, plus `opencv-python`, `mediapipe`, `numpy`. The model file is committed, so there is nothing to train.
 
+Working from a cloned copy? Install it editable so `python -m airmath` resolves:
+
+```bash
+py -3.13 -m pip install -e .
+py -3.13 -m airmath
+```
+
 ## Run
 
 ```bash
